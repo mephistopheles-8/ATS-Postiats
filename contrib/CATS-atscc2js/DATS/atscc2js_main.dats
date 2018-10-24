@@ -82,6 +82,7 @@ waitkind =
   | WTKnone of ()
   | WTKinput of ()
   | WTKoutput of () // -o / --output
+  | WTKiife of () // -iife <name>
 // end of [waitkind]
 
 (* ****** ****** *)
@@ -105,6 +106,12 @@ case+ x of
 
 (* ****** ****** *)
 
+datatype JSModule =
+ | JSnone
+ | JSMcommonJS
+ | JSMes6
+ | JSMiife of string (** iifes need a global name **)
+
 typedef
 cmdstate = @{
   comarg0= comarg
@@ -114,6 +121,7 @@ cmdstate = @{
 , ninputfile= int // waiting for STDIN if it is 0
 , outchan= OUTCHAN // current output channel
 , nerror= int // number of accumulated errors
+, module= JSModule // module format
 } (* end of [cmdstate] *)
 
 (* ****** ****** *)
@@ -142,6 +150,119 @@ end // end of [cmdstate_set_outchan]
 //
 extern
 fun
+atscc2js_module_beg
+  (state: &cmdstate >> _, filr: FILEref): void
+//
+implement
+atscc2js_module_beg
+  (state, out) = let
+//
+//
+in case+ state.module of
+    | JSMiife(name) =>
+        begin
+            emit_text( out, "\n/* IIFE Beg */\n");
+            emit_text( out, "var ");
+            emit_text( out,  name );
+            emit_text( out,  " = (function () {\n" );
+        end
+    | _ => ()
+end // end of [atscc2js_module_beg]
+//
+extern
+fun
+atscc2js_module_end
+  (state: &cmdstate >> _, filr: FILEref, d0cs: d0eclist ): void
+//
+implement
+atscc2js_module_end
+  (state, out, d0cs) = let
+//
+    fn is_f0decl ( d0c: d0ecl ) : bool =
+        case+ d0c.d0ecl_node of
+         | D0Cfundecl(fk,f0d) =>
+            (case+ f0d.f0decl_node of
+              | F0DECLsome _=> true
+              | _ => false
+            )
+          | _ => false
+
+
+    fn emit_f0decl_name ( out: FILEref, d0c: d0ecl ) : void =
+        case+ d0c.d0ecl_node of
+         | D0Cfundecl(fk,f0d) =>
+            (case+ f0d.f0decl_node of
+              | F0DECLsome(fhd,_) =>
+                   (case+ fhd.f0head_node of 
+                     | F0HEAD(fid,_,_) =>
+                         emit_i0de(out,fid);
+                     )
+    
+              | _ => () 
+            )
+         | _ => ()
+    
+
+    fun loopObj(obj_name: string, out: FILEref, d0cs: d0eclist ) 
+     : void =
+        case+ d0cs of
+         | list_nil() => ()
+         | list_cons(d0c, d0cs) => 
+           let
+              val () =
+                if is_f0decl(d0c)
+                then (emit_text(out, obj_name);
+                      emit_text(out, "."); 
+                      emit_f0decl_name(out,d0c);
+                      emit_text(out, " = " );
+                      emit_f0decl_name(out,d0c);
+                      emit_text(out, ";\n"))
+                else () 
+ 
+            in loopObj(obj_name,out,d0cs) 
+           end // end [loopES6]
+
+
+    fun loopES6( out: FILEref, d0cs: d0eclist, ct: bool ) 
+     : void =
+        case+ d0cs of
+         | list_nil() => ()
+         | list_cons(d0c, d0cs) => 
+           let
+              val b =
+                if is_f0decl(d0c)
+                then  
+                    ((if ct 
+                      then emit_text(out, "\n  , ")
+                      else emit_text(out, "    "));
+                     emit_f0decl_name(out,d0c);
+                     true )
+                else ct 
+ 
+            in loopES6(out,d0cs,b) 
+           end // end [loopES6]
+
+in case+ state.module of
+    | JSMiife(name) =>
+            ( emit_text(out, "\nvar _ATS2_iife_exports = {};\n");
+              loopObj("_ATS2_iife_exports", out, d0cs);
+              emit_text(out, "\nreturn _ATS2_iife_exports;\n");
+              emit_text( out, "\n})(); // end [iife]\n"))
+    | JSMcommonJS() =>
+            ( emit_text(out, "\nmodule.exports = {};\n");
+              loopObj("module.exports", out, d0cs) )
+
+    | JSMes6() =>
+           ( emit_text(out, "\nexport {\n");
+             loopES6( out, d0cs, false);
+             emit_text(out, "\n}; // end [export]")
+            )
+            
+    | _ => ()
+end // end of [atscc2js_module_beg]
+//
+extern
+fun
 atscc2js_fileref
   (state: &cmdstate >> _, filr: FILEref): void
 //
@@ -156,7 +277,11 @@ val d0cs = parse_from_fileref(inp)
 //
 val () = emit_time_stamp(out)
 //
+val () = atscc2js_module_beg(state,out)
+//
 val ((*void*)) = emit_toplevel(out, d0cs)
+//
+val () = atscc2js_module_end(state,out,d0cs)
 //
 val () =
 emit_text (out, "\n/* ****** ****** */\n")
@@ -299,6 +424,13 @@ isoutwait
   case+ state.waitkind of WTKoutput() => true | _ => false
 ) (* end of [isoutwait] *)
 //
+fn
+isiffewait
+  (state: cmdstate): bool =
+(
+  case+ state.waitkind of WTKiife() => true | _ => false
+) (* end of [isiffewait] *)
+//
 (* ****** ****** *)
 //
 extern
@@ -342,6 +474,13 @@ val () =
 println! ("  -o <filename> : output into <filename>")
 val () =
 println! ("  --output <filename> : output into <filename>")
+//
+val () =
+println! ("  -iife <global> : to compile JS to an IIFE. Top-level function delarations are added to an object declared as <global>.")
+val () =
+println! ("  -es6 : to compile JS to an ES6 module. Exports top-level function declarations.")
+val () =
+println! ("  -commonjs : to compile JS to a CommonJS module.  Exports top-level function declarations.")
 //
 val () =
 println! ("  -h : for printing out this help usage")
@@ -435,6 +574,15 @@ case+ arg of
       } (* end of [COMARG(_, _)] *)
   end // end of [_ when isinpwait]
 //
+| _ when
+    isiffewait(state) => let
+    val COMARG(_, iffeName) = arg
+  in
+    state.waitkind := WTKnone((*void*));
+    state.module   := JSMiife(iffeName);
+    process_cmdline(state, arglst)
+ end
+//
 | COMARG(1, key) =>
     process_cmdline2_comarg1(state, arglst, key)
 | COMARG(2, key) =>
@@ -467,6 +615,25 @@ case+ key of
     // end of [val]
     val () = state.waitkind := WTKinput()
   } (* end of [-i] *)
+//
+| "-iife" =>
+  {
+    val () = state.waitkind := WTKiife()
+    // end of [val]
+   // val () = state.module := JSMiife()
+  } (* end of [-iife] *)
+//
+| "-es6" =>
+  {
+    // end of [val]
+    val () = state.module := JSMes6()
+  } (* end of [-es6] *)
+//
+| "-commonjs" =>
+  {
+    // end of [val]
+    val () = state.module := JSMcommonJS()
+  } (* end of [-es6] *)
 //
 | "-o" =>
   {
@@ -636,6 +803,7 @@ state = @{
 , ninputfile= ~1 // input files
 , outchan= OUTCHANref(stdout_ref)
 , nerror= 0 // number of accumulated errors
+, module=JSnone() //module format 
 } : cmdstate // end of [var]
 //
 val () = process_cmdline(state, arglst)
