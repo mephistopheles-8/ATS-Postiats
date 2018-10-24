@@ -160,7 +160,7 @@ val () = emit_toplevel(out, d0cs)
 val () = emit_text (out, "/* ****** ****** */\n\n")
 val () = emit_text (out, "/* end-of-compilation-unit */\n")
 //
-val ((*closing*)) = emit_text (out, "?>\n")
+val ((*closing*)) = emit_text (out, "?>")
 //
 val ((*flusing*)) = emit_flush (out)
 //
