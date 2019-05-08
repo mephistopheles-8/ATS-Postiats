@@ -2,8 +2,14 @@
 
 ######
 #
+# HX-2018-12-19:
+# This version is FROZEN.
+# Please make no changes!!!
+#
+######
+#
 # HX-2018-03-17:
-# Created based on a version of
+# Created based on a version by
 # Brandon Barker
 # <brandon dot barker at cornell dot edu>
 #
@@ -13,11 +19,12 @@
 ######
 #
 # HX-2018-03-18:
-# Here is a typical use of this script (for versions 0.3.10+ of ATS only);
+# A typical use of this script
+# (for versions 0.3.10+ of ATS only):
 # the first argument to the script is the release to be built:
 #
 # cd /tmp
-# sh ${PATSHOME}/share/SCRIPT/buildRelease.sh 0.3.10
+# sh ${PATSHOME}/share/SCRIPT/build_release.sh 0.3.10
 # <
 # Upload the following three built packages
 # /tmp/ATS-Postiats/doc/DISTRIB/ATS2-Postiats-x.y.z.tgz
@@ -26,6 +33,12 @@
 # >
 # rm -rf /tmp/ATS-Postiats
 # rm -rf /tmp/ATS-Postiats-contrib
+#
+######
+#
+# HX-2018-12-01:
+# Please make sure that
+# the version number in configure.ac is properly updated!!!
 #
 ######
 
@@ -71,13 +84,22 @@ if [ -z "$PATSVERSION" ] ;
   then PATSVERSION=$(cat "${PATSHOME}/VERSION")
 fi
 
+AC_INIT_VERSION="AC_INIT([ATS2/Postiats], [${PATSVERSION}], [gmpostiats@gmail.com])"
+if grep -Fxq "$AC_INIT_VERSION" "${PATSHOME}/doc/DISTRIB/ATS-Postiats/configure.ac"
+then
+    echo "Correct version found in configure.ac"
+else
+    echo "Failure: Didn't find correct Postiats version for AC_INIT in configure.ac!"
+    exit -1;
+fi
+
 ######
 
 (\
 cd "$PATSHOME" && \
 $GIT checkout "tags/v${PATSVERSION}" && \
 make -f Makefile_devl && \
-make -C src -f Makefile CBOOT  && \
+make -C src -f Makefile CBOOTgmp  && \
 (cp ./bin/*_env.sh.in ./doc/DISTRIB/ATS-Postiats/bin/.) && \
 (cd ./doc/DISTRIB/ATS-Postiats && sh ./autogen.sh && ./configure) && \
 make -C src/CBOOT/libc -f Makefile && \
@@ -94,4 +116,4 @@ make -C doc/DISTRIB -f Makefile_inclats tarzvcf \
 
 ls -alh "$PATSHOME/doc/DISTRIB/"ATS2-*.tgz
 
-###### end of [buildRelease.sh] ######
+###### end of [build_release.sh] ######

@@ -85,13 +85,13 @@ list0_vt_free(xs: list0_vt(a)): void
 fun
 {a:vt0p}
 list0_vt_append
-  (list0_vt(a), list0_vt(a)): list0_vt(a)
+(list0_vt(INV(a)), list0_vt(INV(a))): list0_vt(a)
 //
 (* ****** ****** *)
 //
 fun
 {a:vt0p}
-list0_vt_reverse(xs: list0_vt(a)): list0_vt(a)
+list0_vt_reverse(xs: list0_vt(INV(a))): list0_vt(a)
 //
 (* ****** ****** *)
 

@@ -860,14 +860,12 @@ the_fixity_load
     $TRENV1.the_fxtyenv_pervasive_joinwth(fxtymap)
 //
 (*
-  val () = begin
-    print "[fixity_load] is finished."; print_newline()
-  end // end of [val]
+  val () = println! "[the_fixity_load] is finished."
 *)
 //
 in
   // empty
-end // end of [fixity_load]
+end // end of [the_fixity_load]
 
 (* ****** ****** *)
 //
@@ -918,7 +916,7 @@ val (pfenv | ()) =
   $TRENV2.the_trans2_env_push((*void*))
 val d2cs = $TRANS2.d1eclist_tr_errck(d1cs)
 val ((*joined*)) =
-  $TRENV2.the_trans2_env_pervasive_joinwth(pfenv | filename, d2cs)
+  $TRENV2.the_trans2_env_pervasive_joinwth1(pfenv | filename, d2cs)
 //
 val ((*reset*)) = $GLOB.the_PACKNAME_set_none()
 val ((*reset*)) = $TRENV1.the_EXTERN_PREFIX_set_none()
